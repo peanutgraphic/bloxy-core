@@ -81,6 +81,36 @@ it('throws when assigning a role that does not exist', function () {
         ->toThrow(InvalidArgumentException::class);
 });
 
+it('canBloxy accepts an Eloquent model directly', function () {
+    $u = TestUser::create(['name' => 'Alice']);
+    $resource = TestUser::create(['name' => 'ResourceModel']);
+    $u->assignRole('heir', $resource);
+
+    expect($u->canBloxy('documents.read', $resource))->toBeTrue();
+    expect($u->canBloxy('documents.write', $resource))->toBeFalse();
+});
+
+it('assignRole accepts an Eloquent model directly', function () {
+    $u = TestUser::create(['name' => 'Alice']);
+    $resource = TestUser::create(['name' => 'ResourceModel']);
+
+    $u->assignRole('heir', $resource);
+
+    $assignment = \Bloxy\Core\Rbac\RoleAssignment::query()->first();
+    expect($assignment->resource_type)->toBe($resource->getMorphClass());
+    expect($assignment->resource_id)->toBe((string) $resource->getKey());
+});
+
+it('revokeRole accepts an Eloquent model directly', function () {
+    $u = TestUser::create(['name' => 'Alice']);
+    $resource = TestUser::create(['name' => 'ResourceModel']);
+    $u->assignRole('heir', $resource);
+
+    $u->revokeRole('heir', $resource);
+
+    expect(\Bloxy\Core\Rbac\RoleAssignment::query()->count())->toBe(0);
+});
+
 class TestUser extends Model
 {
     use Authorizable;

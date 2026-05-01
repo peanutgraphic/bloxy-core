@@ -7,6 +7,7 @@ namespace Bloxy\Core\Identity;
 use Bloxy\Core\Rbac\BloxyAccessResolver;
 use Bloxy\Core\Rbac\Role;
 use Bloxy\Core\Rbac\RoleAssignment;
+use Illuminate\Database\Eloquent\Model;
 use InvalidArgumentException;
 
 /**
@@ -14,12 +15,17 @@ use InvalidArgumentException;
  *
  * Methods are prefixed `canBloxy` (not `can`) to avoid colliding with
  * Laravel's Authenticatable::can().
+ *
+ * Each resource-scoped method accepts EITHER an Eloquent Model directly
+ * (preferred) OR a (resourceType, resourceId) string pair (for non-Eloquent
+ * identities or when the model isn't loaded). When a Model is passed, the
+ * resourceId arg is ignored — the trait extracts class + key from it.
  */
 trait Authorizable
 {
     public function assignRole(
         string $roleName,
-        ?string $resourceType = null,
+        Model|string|null $resourceType = null,
         ?string $resourceId = null,
         ?array $activationPredicate = null,
     ): RoleAssignment {
@@ -28,13 +34,15 @@ trait Authorizable
             throw new InvalidArgumentException("Role [{$roleName}] does not exist.");
         }
 
+        [$resolvedType, $resolvedId] = $this->resolveResource($resourceType, $resourceId);
+
         return RoleAssignment::firstOrCreate(
             [
                 'user_type' => $this->getMorphClass(),
                 'user_id' => (string) $this->getKey(),
                 'role_id' => $role->id,
-                'resource_type' => $resourceType,
-                'resource_id' => $resourceId,
+                'resource_type' => $resolvedType,
+                'resource_id' => $resolvedId,
             ],
             [
                 'activation_predicate' => $activationPredicate,
@@ -44,7 +52,7 @@ trait Authorizable
 
     public function revokeRole(
         string $roleName,
-        ?string $resourceType = null,
+        Model|string|null $resourceType = null,
         ?string $resourceId = null,
     ): int {
         $role = Role::query()->where('name', $roleName)->first();
@@ -52,12 +60,14 @@ trait Authorizable
             return 0;
         }
 
+        [$resolvedType, $resolvedId] = $this->resolveResource($resourceType, $resourceId);
+
         return RoleAssignment::query()
             ->where('user_type', $this->getMorphClass())
             ->where('user_id', (string) $this->getKey())
             ->where('role_id', $role->id)
-            ->where('resource_type', $resourceType)
-            ->where('resource_id', $resourceId)
+            ->where('resource_type', $resolvedType)
+            ->where('resource_id', $resolvedId)
             ->delete();
     }
 
@@ -72,16 +82,32 @@ trait Authorizable
 
     public function canBloxy(
         string $permission,
-        ?string $resourceType = null,
+        Model|string|null $resourceType = null,
         ?string $resourceId = null,
     ): bool {
+        [$resolvedType, $resolvedId] = $this->resolveResource($resourceType, $resourceId);
+
         return $this->resolver()->check(
             $this->getMorphClass(),
             (string) $this->getKey(),
             $permission,
-            $resourceType,
-            $resourceId,
+            $resolvedType,
+            $resolvedId,
         );
+    }
+
+    /**
+     * @return array{0: ?string, 1: ?string}
+     */
+    private function resolveResource(Model|string|null $resourceType, ?string $resourceId): array
+    {
+        if ($resourceType instanceof Model) {
+            return [
+                $resourceType->getMorphClass(),
+                (string) $resourceType->getKey(),
+            ];
+        }
+        return [$resourceType, $resourceId];
     }
 
     private function resolver(): BloxyAccessResolver
