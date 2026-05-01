@@ -6,6 +6,7 @@ namespace Bloxy\Core;
 
 use Bloxy\Core\Audit\AuditMiddleware;
 use Bloxy\Core\Observability\Redactor;
+use Bloxy\Core\Rbac\BloxyAccessResolver;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Routing\Router;
 use Illuminate\Support\ServiceProvider;
@@ -29,6 +30,10 @@ class BloxyCoreServiceProvider extends ServiceProvider
                 allowlist: (array) ($config['allowlist'] ?? []),
                 marker: (string) ($config['marker'] ?? '[REDACTED]'),
             );
+        });
+
+        $this->app->singleton(BloxyAccessResolver::class, function () {
+            return new BloxyAccessResolver();
         });
     }
 

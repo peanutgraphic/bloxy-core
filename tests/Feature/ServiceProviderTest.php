@@ -37,3 +37,15 @@ it('registers the audit middleware alias on the router', function () {
     expect($aliases)->toHaveKey('bloxy.audit');
     expect($aliases['bloxy.audit'])->toBe(\Bloxy\Core\Audit\AuditMiddleware::class);
 });
+
+it('binds BloxyAccessResolver as a singleton', function () {
+    $a = app(\Bloxy\Core\Rbac\BloxyAccessResolver::class);
+    $b = app(\Bloxy\Core\Rbac\BloxyAccessResolver::class);
+    expect($a)->toBeInstanceOf(\Bloxy\Core\Rbac\BloxyAccessResolver::class);
+    expect($a)->toBe($b);
+});
+
+it('exposes the bloxy.rbac config namespace', function () {
+    expect(config('bloxy.rbac'))->toBeArray();
+    expect(config('bloxy.rbac'))->toHaveKey('predicate_evaluator');
+});

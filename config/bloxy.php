@@ -52,4 +52,18 @@ return [
         */
         'middleware_alias' => 'bloxy.audit',
     ],
+
+    'rbac' => [
+        /*
+        |----------------------------------------------------------------------
+        | Predicate evaluation (M1.4+)
+        |----------------------------------------------------------------------
+        |
+        | M1.3 ships the storage slot for `activation_predicate` only. Any
+        | non-null predicate is treated as "inactive" until M1.4+ plugs in a
+        | predicate evaluator. This config key reserves the namespace.
+        |
+        */
+        'predicate_evaluator' => null,
+    ],
 ];
