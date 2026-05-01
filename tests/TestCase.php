@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace Bloxy\Core\Tests;
 
 use Bloxy\Core\BloxyCoreServiceProvider;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Orchestra\Testbench\TestCase as OrchestraTestCase;
 
 abstract class TestCase extends OrchestraTestCase
 {
+    use RefreshDatabase;
+
     protected function getPackageProviders($app): array
     {
         return [

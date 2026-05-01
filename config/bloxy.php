@@ -39,4 +39,17 @@ return [
             'marker' => '[REDACTED]',
         ],
     ],
+
+    'audit' => [
+        /*
+        |----------------------------------------------------------------------
+        | HTTP audit-middleware alias
+        |----------------------------------------------------------------------
+        |
+        | The middleware is registered under this alias. Apps attach it to
+        | route groups via `Route::middleware($alias)->group(...)`.
+        |
+        */
+        'middleware_alias' => 'bloxy.audit',
+    ],
 ];

@@ -27,3 +27,13 @@ it('binds the Redactor as a singleton seeded from config', function () {
     $result = $a->redact(['password' => 'sekret', 'name' => 'nat']);
     expect($result)->toBe(['password' => '[REDACTED]', 'name' => 'nat']);
 });
+
+it('registers the audit middleware alias on the router', function () {
+    /** @var \Illuminate\Routing\Router $router */
+    $router = app(\Illuminate\Routing\Router::class);
+
+    $aliases = $router->getMiddleware();
+
+    expect($aliases)->toHaveKey('bloxy.audit');
+    expect($aliases['bloxy.audit'])->toBe(\Bloxy\Core\Audit\AuditMiddleware::class);
+});
