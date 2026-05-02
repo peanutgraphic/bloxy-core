@@ -37,6 +37,28 @@ return [
                 'set-cookie',
             ],
             'marker' => '[REDACTED]',
+
+            /*
+            |------------------------------------------------------------------
+            | Auto-wiring
+            |------------------------------------------------------------------
+            |
+            | When auto_wire_monolog is true, BloxyCoreServiceProvider attaches
+            | RedactingProcessor to the DEFAULT Monolog channel only — named
+            | channels (Log::channel('slack'), etc.) are not covered; push the
+            | processor manually in those channels' configs if needed.
+            |
+            | When auto_wire_sentry is true AND Sentry's PHP SDK is installed
+            | (Sentry\State\Hub class exists), the provider sets a before_send
+            | callback that recursively walks every Sentry event payload
+            | through Redactor before transmission.
+            |
+            | Both default to true. Set to false in apps that need custom
+            | observability wiring.
+            |
+            */
+            'auto_wire_monolog' => env('BLOXY_REDACTOR_AUTO_WIRE_MONOLOG', true),
+            'auto_wire_sentry' => env('BLOXY_REDACTOR_AUTO_WIRE_SENTRY', true),
         ],
     ],
 
