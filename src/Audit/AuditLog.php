@@ -30,6 +30,34 @@ class AuditLog extends Model
             'happened_at' => 'datetime',
             'changes' => ServerEncryptedJson::class,
             'meta' => 'array',
+            'signing_key_id' => 'integer',
         ];
+    }
+
+    protected static function boot(): void
+    {
+        parent::boot();
+
+        static::saving(function (AuditLog $row): void {
+            // Resolve via container so the cast/key-lookup honors the host app's config.
+            // Skip if bloxy is not booted (e.g. raw Eloquent in a non-Laravel context).
+            if (! function_exists('app')) {
+                return;
+            }
+
+            try {
+                $signer = app(ChainSigner::class);
+            } catch (\Throwable $e) {
+                // When the chain is enabled, a resolver failure must surface —
+                // silently saving unsigned rows in a chain-enabled deployment
+                // would punch holes the verifier can't catch.
+                if ((bool) (function_exists('config') ? config('bloxy.audit.signed_chain', false) : false)) {
+                    throw $e;
+                }
+                return;
+            }
+
+            $signer->sign($row);
+        });
     }
 }

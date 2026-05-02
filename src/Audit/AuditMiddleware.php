@@ -62,12 +62,76 @@ class AuditMiddleware
             'ip_address' => $request->ip(),
             'user_agent' => $userAgent,
             'request_id' => $requestId,
-            'meta' => [
-                'method' => $request->method(),
-                'path' => $request->path(),
-                'status' => $response->getStatusCode(),
-            ],
+            'meta' => array_merge(
+                [
+                    'method' => $request->method(),
+                    'path' => $request->path(),
+                    'status' => $response->getStatusCode(),
+                ],
+                $this->captureBody($request),
+            ),
         ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function captureBody(Request $request): array
+    {
+        $mode = config('bloxy.audit.capture_request_body');
+        if ($mode !== 'redacted' && $mode !== 'full') {
+            return [];
+        }
+
+        $contentType = (string) $request->header('Content-Type', '');
+
+        // Multipart uploads — never capture the actual content.
+        // Check both header AND files collection: Laravel's test client
+        // populates $request->files for fake uploads but doesn't set the
+        // Content-Type header, so the bare header check would let
+        // UploadedFile objects flow into $request->all() and crash JSON
+        // encoding of meta.
+        if (str_starts_with($contentType, 'multipart/form-data') || $request->files->count() > 0) {
+            return ['body' => ['_omitted' => 'multipart/form-data']];
+        }
+
+        $maxBytes = (int) config('bloxy.audit.request_body_max_bytes', 65536);
+
+        // Pre-check Content-Length to avoid loading huge bodies into memory
+        // for the strlen() check. Header may be absent or wrong (chunked
+        // encoding, malicious clients), so the strlen() guard below still
+        // runs as the authoritative check.
+        $contentLength = (int) $request->header('Content-Length', 0);
+        if ($contentLength > $maxBytes) {
+            return ['body_truncated' => true];
+        }
+
+        $raw = (string) $request->getContent();
+        if (strlen($raw) > $maxBytes) {
+            return ['body_truncated' => true];
+        }
+
+        // JSON path: decode the raw body. Form / other paths: use $request->all()
+        // (which intentionally includes query string params — they're submission
+        // data too, and the redundancy with meta.path is acceptable).
+        if (str_starts_with($contentType, 'application/json')) {
+            try {
+                $decoded = json_decode($raw, associative: true, flags: JSON_THROW_ON_ERROR);
+                $body = is_array($decoded) ? $decoded : ['_raw' => $raw];
+            } catch (\JsonException) {
+                // Genuine malformed JSON — store the raw bytes (capped at $maxBytes
+                // already by the size guard) for forensic value.
+                $body = ['_raw' => $raw];
+            }
+        } else {
+            $body = $request->all();
+        }
+
+        if ($mode === 'redacted') {
+            $body = app(\Bloxy\Core\Observability\Redactor::class)->redact($body);
+        }
+
+        return ['body' => $body];
     }
 
     /** @return array{type: ?string, id: ?string} */

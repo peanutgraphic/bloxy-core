@@ -35,6 +35,10 @@ class BloxyCoreServiceProvider extends ServiceProvider
         $this->app->singleton(BloxyAccessResolver::class, function () {
             return new BloxyAccessResolver();
         });
+
+        $this->app->singleton(\Bloxy\Core\Audit\ChainSigner::class, function () {
+            return new \Bloxy\Core\Audit\ChainSigner();
+        });
     }
 
     public function boot(): void
@@ -50,6 +54,12 @@ class BloxyCoreServiceProvider extends ServiceProvider
             $this->publishes([
                 __DIR__ . '/../database/migrations' => database_path('migrations'),
             ], 'bloxy-migrations');
+
+            $this->commands([
+                \Bloxy\Core\Audit\Console\VerifyChainCommand::class,
+                \Bloxy\Core\Audit\Console\AuditAnchorCommand::class,
+                \Bloxy\Core\Audit\Console\AuditCoverageCommand::class,
+            ]);
         }
     }
 
