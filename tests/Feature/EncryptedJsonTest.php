@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Bloxy\Core\Casts\EncryptedJson;
+use Bloxy\Core\Casts\ServerEncryptedJson;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -84,6 +85,44 @@ class TestEncryptedJsonModel extends Model
     {
         return [
             'payload' => EncryptedJson::class,
+        ];
+    }
+}
+
+// --- ServerEncryptedJson (canonical) ---
+
+it('ServerEncryptedJson round-trips an associative array', function () {
+    $original = ['name' => 'nat', 'score' => 42, 'active' => true];
+
+    $model = new TestServerEncryptedJsonModel();
+    $model->payload = $original;
+    $model->save();
+
+    $rawColumn = \Illuminate\Support\Facades\DB::table('test_encrypted_json_models')
+        ->where('id', $model->id)
+        ->value('payload');
+
+    expect($rawColumn)->not->toContain('nat');
+    expect($rawColumn)->not->toContain('score');
+
+    $reloaded = TestServerEncryptedJsonModel::find($model->id);
+    expect($reloaded->payload)->toBe($original);
+});
+
+it('EncryptedJson is an instanceof ServerEncryptedJson', function () {
+    expect(new EncryptedJson())->toBeInstanceOf(ServerEncryptedJson::class);
+});
+
+class TestServerEncryptedJsonModel extends Model
+{
+    protected $table = 'test_encrypted_json_models';
+    protected $guarded = [];
+    public $timestamps = true;
+
+    protected function casts(): array
+    {
+        return [
+            'payload' => ServerEncryptedJson::class,
         ];
     }
 }

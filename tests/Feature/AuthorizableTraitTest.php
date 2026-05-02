@@ -111,6 +111,55 @@ it('revokeRole accepts an Eloquent model directly', function () {
     expect(\Bloxy\Core\Rbac\RoleAssignment::query()->count())->toBe(0);
 });
 
+it('bloxyAssignRole creates a global role assignment', function () {
+    $u = TestUser::create(['name' => 'Alice']);
+
+    $assignment = $u->bloxyAssignRole('heir');
+
+    expect($assignment)->toBeInstanceOf(RoleAssignment::class);
+    expect($assignment->resource_type)->toBeNull();
+    expect($assignment->resource_id)->toBeNull();
+});
+
+it('bloxyHasRole returns false before assignment, true after', function () {
+    $u = TestUser::create(['name' => 'Alice']);
+
+    expect($u->bloxyHasRole('heir'))->toBeFalse();
+
+    $u->bloxyAssignRole('heir');
+
+    expect($u->bloxyHasRole('heir'))->toBeTrue();
+});
+
+it('bloxyCan returns true for a permission granted via role', function () {
+    $role = Role::create(['name' => 'editor']);
+    $perm = Permission::create(['name' => 'documents.write']);
+    $role->permissions()->attach($perm->id);
+
+    $u = TestUser::create(['name' => 'Alice']);
+    $u->bloxyAssignRole('editor');
+
+    expect($u->bloxyCan('documents.write'))->toBeTrue();
+});
+
+it('bloxyRevokeRole removes the assignment', function () {
+    $u = TestUser::create(['name' => 'Alice']);
+    $u->bloxyAssignRole('heir');
+
+    $deleted = $u->bloxyRevokeRole('heir');
+
+    expect($deleted)->toBe(1);
+    expect($u->bloxyHasRole('heir'))->toBeFalse();
+});
+
+it('bloxyRevokeRole returns 0 when the role does not exist', function () {
+    $u = TestUser::create(['name' => 'Alice']);
+
+    $deleted = $u->bloxyRevokeRole('role-that-does-not-exist');
+
+    expect($deleted)->toBe(0);
+});
+
 class TestUser extends Model
 {
     use Authorizable;

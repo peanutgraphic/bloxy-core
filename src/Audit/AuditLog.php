@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Bloxy\Core\Audit;
 
-use Bloxy\Core\Casts\EncryptedJson;
+use Bloxy\Core\Casts\ServerEncryptedJson;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -28,7 +28,7 @@ class AuditLog extends Model
     {
         return [
             'happened_at' => 'datetime',
-            'changes' => EncryptedJson::class,
+            'changes' => ServerEncryptedJson::class,
             'meta' => 'array',
         ];
     }

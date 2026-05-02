@@ -4,36 +4,11 @@ declare(strict_types=1);
 
 namespace Bloxy\Core\Casts;
 
-use Illuminate\Contracts\Database\Eloquent\CastsAttributes;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Crypt;
-
 /**
- * Encrypted string cast.
- *
- * Encrypts the attribute on the way to the database and decrypts on retrieval.
- * Uses the host application's encryption key (Laravel's `Crypt` facade).
- *
- * Use on a `text` (or larger) column — encrypted output is longer than the
- * plaintext.
+ * @deprecated 0.x.0 Use ServerEncryptedString. Renamed to disambiguate from
+ * the client-held envelope encryption shipping in bloxy-crypto. Will be
+ * removed in the next minor version.
  */
-class EncryptedString implements CastsAttributes
+final class EncryptedString extends ServerEncryptedString
 {
-    public function get(Model $model, string $key, mixed $value, array $attributes): ?string
-    {
-        if ($value === null) {
-            return null;
-        }
-
-        return Crypt::decryptString((string) $value);
-    }
-
-    public function set(Model $model, string $key, mixed $value, array $attributes): ?string
-    {
-        if ($value === null) {
-            return null;
-        }
-
-        return Crypt::encryptString((string) $value);
-    }
 }
