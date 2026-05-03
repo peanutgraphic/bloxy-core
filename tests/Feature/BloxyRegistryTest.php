@@ -8,17 +8,24 @@ afterEach(function () {
     Bloxy::reset();
 });
 
-it('returns null when no user model has been registered', function () {
-    expect(Bloxy::userModel())->toBeNull();
+it('useUserModel emits a deprecation notice but does not error', function () {
+    $errors = [];
+    set_error_handler(function ($severity, $message) use (&$errors) {
+        $errors[] = ['severity' => $severity, 'message' => $message];
+        return true;
+    }, E_USER_DEPRECATED);
+
+    Bloxy::useUserModel(\stdClass::class);
+
+    restore_error_handler();
+
+    expect($errors)->toHaveCount(1);
+    expect($errors[0]['message'])->toContain('deprecated');
 });
 
-it('stores and returns the registered user model class', function () {
-    Bloxy::useUserModel('App\\Models\\User');
-    expect(Bloxy::userModel())->toBe('App\\Models\\User');
-});
+it('userModel returns the auth.providers.users.model value', function () {
+    config()->set('auth.providers.users.model', 'App\\Models\\User');
 
-it('reset() clears the registered model', function () {
-    Bloxy::useUserModel('App\\Models\\User');
-    Bloxy::reset();
-    expect(Bloxy::userModel())->toBeNull();
+    @$result = Bloxy::userModel();
+    expect($result)->toBe('App\\Models\\User');
 });
