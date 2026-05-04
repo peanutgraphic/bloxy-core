@@ -41,6 +41,10 @@ class BloxyCoreServiceProvider extends ServiceProvider
         $this->app->singleton(\Bloxy\Core\Audit\ChainSigner::class, function () {
             return new \Bloxy\Core\Audit\ChainSigner();
         });
+
+        $this->app->singleton(\Bloxy\Core\Agent\AgentRegistry::class, function () {
+            return new \Bloxy\Core\Agent\InMemoryAgentRegistry();
+        });
     }
 
     public function boot(): void
