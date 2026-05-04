@@ -11,12 +11,14 @@
     },
     "require-dev": {
         "anthropic-ai/sdk": "^0.17",
+        "inertiajs/inertia-laravel": "^3.0",
         "orchestra/testbench": "^10.0",
         "pestphp/pest": "^3.0",
         "pestphp/pest-plugin-laravel": "^3.0"
     },
     "suggest": {
-        "anthropic-ai/sdk": "Required if you bind AnthropicAgentRunner via Bloxy\\Core\\Agent\\AgentRunner. Not needed for NaiveRunner."
+        "anthropic-ai/sdk": "Required if you bind AnthropicAgentRunner via Bloxy\\Core\\Agent\\AgentRunner. Not needed for NaiveRunner.",
+        "inertiajs/inertia-laravel": "Required if you bind ShareAgentsWithInertia middleware. Not needed otherwise."
     },
     "autoload": {
         "psr-4": {
