@@ -28,3 +28,26 @@ it('AgentAuditActions exposes the three string constants', function () {
     expect(\Bloxy\Core\Agent\Audit\AgentAuditActions::AGENT_INVOKE_DENIED)->toBe('AGENT_INVOKE_DENIED');
     expect(\Bloxy\Core\Agent\Audit\AgentAuditActions::AGENT_INVOKE_FAILED)->toBe('AGENT_INVOKE_FAILED');
 });
+
+it('AnthropicInvocationException factory captures the response stop_reason', function () {
+    $e = \Bloxy\Core\Agent\Exceptions\AnthropicInvocationException::forStopReason('demo.x', 'unknown_reason');
+    expect($e->getMessage())->toContain('demo.x');
+    expect($e->getMessage())->toContain('unknown_reason');
+});
+
+it('AnthropicRefusalException carries the model-stated reason', function () {
+    $e = \Bloxy\Core\Agent\Exceptions\AnthropicRefusalException::for('demo.x', 'refused due to safety policy');
+    expect($e->getMessage())->toContain('demo.x');
+    expect($e->getMessage())->toContain('refused due to safety policy');
+});
+
+it('AnthropicMaxTokensException notes hitting the cap', function () {
+    $e = \Bloxy\Core\Agent\Exceptions\AnthropicMaxTokensException::for('demo.x', 4096);
+    expect($e->getMessage())->toContain('demo.x');
+    expect($e->getMessage())->toContain('4096');
+});
+
+it('AnthropicContextOverflowException notes the context window was exceeded', function () {
+    $e = \Bloxy\Core\Agent\Exceptions\AnthropicContextOverflowException::for('demo.x');
+    expect($e->getMessage())->toContain('demo.x');
+});

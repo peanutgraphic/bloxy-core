@@ -46,6 +46,22 @@ class BloxyCoreServiceProvider extends ServiceProvider
             return new \Bloxy\Core\Agent\Runners\NaiveRunner();
         });
 
+        // To opt into AnthropicAgentRunner instead of NaiveRunner:
+        //
+        // $this->app->singleton(\Bloxy\Core\Agent\Runners\AnthropicConfig::class, function ($app) {
+        //     return \Bloxy\Core\Agent\Runners\AnthropicConfig::fromConfig($app['config']);
+        // });
+        //
+        // $this->app->singleton(\Bloxy\Core\Agent\AgentRunner::class, function ($app) {
+        //     $config = $app->make(\Bloxy\Core\Agent\Runners\AnthropicConfig::class);
+        //     return new \Bloxy\Core\Agent\Runners\AnthropicAgentRunner(
+        //         client: new \Anthropic\Client(apiKey: $config->apiKey),
+        //         config: $config,
+        //     );
+        // });
+        //
+        // See docs/agents.md § "LlmAgent + AnthropicAgentRunner" for full setup.
+
         $this->app->singleton(\Bloxy\Core\Agent\AgentAuthorizer::class, function (Application $app) {
             return new \Bloxy\Core\Agent\Authorizers\BloxyRbacAgentAuthorizer(
                 $app->make(\Illuminate\Contracts\Auth\Factory::class),

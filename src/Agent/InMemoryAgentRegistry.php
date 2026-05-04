@@ -73,7 +73,7 @@ final class InMemoryAgentRegistry implements AgentRegistry
         }
 
         try {
-            $result = $this->runner->run($agent, $params);
+            $runResult = $this->runner->run($agent, $params);
         } catch (Throwable $e) {
             $this->safeEmitFailureTelemetry(
                 AgentAuditActions::AGENT_INVOKE_FAILED,
@@ -85,11 +85,17 @@ final class InMemoryAgentRegistry implements AgentRegistry
             throw AgentInvocationFailedException::wrap($name, $e);
         }
 
-        $resultMeta = $this->resultHashMeta($result);
+        $resultMeta = $this->resultHashMeta($runResult->result);
         $this->emitAudit(AgentAuditActions::AGENT_INVOKE, $agent, $params, $resultMeta);
-        $this->logUsage($agent, 'success');
+        $this->logUsage(
+            $agent,
+            'success',
+            promptTokens: $runResult->promptTokens,
+            completionTokens: $runResult->completionTokens,
+            costUsdCents: $runResult->costUsdCents,
+        );
 
-        return $result;
+        return $runResult->result;
     }
 
     /** @param array<string, mixed> $params  @param array<string, mixed> $extraMeta */
@@ -111,8 +117,13 @@ final class InMemoryAgentRegistry implements AgentRegistry
         ]);
     }
 
-    private function logUsage(Agent $agent, string $outcome): void
-    {
+    private function logUsage(
+        Agent $agent,
+        string $outcome,
+        ?int $promptTokens = null,
+        ?int $completionTokens = null,
+        ?int $costUsdCents = null,
+    ): void {
         [$actorType, $actorId] = $this->actorTuple();
         $this->usageLogger->record(
             agent: $agent,
@@ -120,9 +131,9 @@ final class InMemoryAgentRegistry implements AgentRegistry
             actorType: $actorType,
             actorId: $actorId,
             outcome: $outcome,
-            promptTokens: null,
-            completionTokens: null,
-            costUsdCents: null,
+            promptTokens: $promptTokens,
+            completionTokens: $completionTokens,
+            costUsdCents: $costUsdCents,
         );
     }
 

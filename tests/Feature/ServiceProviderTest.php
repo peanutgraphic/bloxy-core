@@ -74,3 +74,24 @@ it('AgentAuthorizer resolves as a singleton', function () {
     expect(app(\Bloxy\Core\Agent\AgentAuthorizer::class))
         ->toBe(app(\Bloxy\Core\Agent\AgentAuthorizer::class));
 });
+
+it('does not bind AnthropicAgentRunner by default — consumers opt in', function () {
+    expect(app(\Bloxy\Core\Agent\AgentRunner::class))
+        ->toBeInstanceOf(\Bloxy\Core\Agent\Runners\NaiveRunner::class);
+    expect(app(\Bloxy\Core\Agent\AgentRunner::class))
+        ->not->toBeInstanceOf(\Bloxy\Core\Agent\Runners\AnthropicAgentRunner::class);
+});
+
+it('resolves AnthropicAgentRunner from container when consumers bind it explicitly', function () {
+    $config = new \Bloxy\Core\Agent\Runners\AnthropicConfig(apiKey: 'sk-test');
+    app()->instance(\Bloxy\Core\Agent\Runners\AnthropicConfig::class, $config);
+    app()->bind(\Bloxy\Core\Agent\AgentRunner::class, function () use ($config) {
+        return \Bloxy\Core\Agent\Runners\AnthropicAgentRunner::createWithTransport(
+            $config,
+            new \Bloxy\Core\Tests\Support\Agent\FakeAnthropicTransport(),
+        );
+    });
+
+    expect(app(\Bloxy\Core\Agent\AgentRunner::class))
+        ->toBeInstanceOf(\Bloxy\Core\Agent\Runners\AnthropicAgentRunner::class);
+});

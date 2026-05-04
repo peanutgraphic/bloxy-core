@@ -133,6 +133,23 @@ return [
         ],
     ],
 
+    'agent' => [
+        'anthropic' => [
+            'api_key' => env('BLOXY_ANTHROPIC_API_KEY'),
+            'model' => env('BLOXY_ANTHROPIC_MODEL', 'claude-opus-4-7'),
+            'max_tokens' => (int) env('BLOXY_ANTHROPIC_MAX_TOKENS', 4096),
+            'effort' => env('BLOXY_ANTHROPIC_EFFORT', 'high'),
+
+            // 'adaptive' (default) | 'disabled' | 'summarized' (visible thinking)
+            'thinking' => env('BLOXY_ANTHROPIC_THINKING', 'adaptive'),
+
+            // Prompt caching for system + tools is the recommended default for agent
+            // loops with stable instructions. Disable per Anthropic's prompt-caching
+            // docs only if your prompt churns more than once per cache TTL.
+            'prompt_cache_enabled' => (bool) env('BLOXY_ANTHROPIC_PROMPT_CACHE', true),
+        ],
+    ],
+
     'rbac' => [
         /*
         |----------------------------------------------------------------------

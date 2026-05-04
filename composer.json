@@ -10,9 +10,13 @@
         "illuminate/support": "^12.0"
     },
     "require-dev": {
+        "anthropic-ai/sdk": "^0.17",
         "orchestra/testbench": "^10.0",
         "pestphp/pest": "^3.0",
         "pestphp/pest-plugin-laravel": "^3.0"
+    },
+    "suggest": {
+        "anthropic-ai/sdk": "Required if you bind AnthropicAgentRunner via Bloxy\\Core\\Agent\\AgentRunner. Not needed for NaiveRunner."
     },
     "autoload": {
         "psr-4": {

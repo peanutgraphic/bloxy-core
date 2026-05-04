@@ -16,5 +16,8 @@ it('NaiveRunner calls $agent->invoke($params) directly and returns the result', 
         public function invoke(array $params): array { return ['echoed' => $params]; }
     };
 
-    expect($runner->run($agent, ['x' => 1]))->toBe(['echoed' => ['x' => 1]]);
+    $result = $runner->run($agent, ['x' => 1]);
+    expect($result)->toBeInstanceOf(\Bloxy\Core\Agent\AgentRunResult::class);
+    expect($result->result)->toBe(['echoed' => ['x' => 1]]);
+    expect($result->promptTokens)->toBeNull();
 });
