@@ -49,3 +49,28 @@ it('exposes the bloxy.rbac config namespace', function () {
     expect(config('bloxy.rbac'))->toBeArray();
     expect(config('bloxy.rbac'))->toHaveKey('predicate_evaluator');
 });
+
+it('binds AgentRunner to NaiveRunner by default', function () {
+    expect(app(\Bloxy\Core\Agent\AgentRunner::class))
+        ->toBeInstanceOf(\Bloxy\Core\Agent\Runners\NaiveRunner::class);
+});
+
+it('binds AgentAuthorizer to BloxyRbacAgentAuthorizer by default (hard-required RBAC)', function () {
+    expect(app(\Bloxy\Core\Agent\AgentAuthorizer::class))
+        ->toBeInstanceOf(\Bloxy\Core\Agent\Authorizers\BloxyRbacAgentAuthorizer::class);
+});
+
+it('UsageLogger resolves as a singleton', function () {
+    expect(app(\Bloxy\Core\Agent\UsageLog\UsageLogger::class))
+        ->toBe(app(\Bloxy\Core\Agent\UsageLog\UsageLogger::class));
+});
+
+it('AgentRunner resolves as a singleton', function () {
+    expect(app(\Bloxy\Core\Agent\AgentRunner::class))
+        ->toBe(app(\Bloxy\Core\Agent\AgentRunner::class));
+});
+
+it('AgentAuthorizer resolves as a singleton', function () {
+    expect(app(\Bloxy\Core\Agent\AgentAuthorizer::class))
+        ->toBe(app(\Bloxy\Core\Agent\AgentAuthorizer::class));
+});

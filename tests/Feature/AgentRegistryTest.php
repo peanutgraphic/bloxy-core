@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use Bloxy\Core\Agent\Agent;
 use Bloxy\Core\Agent\AgentRegistry;
-use Bloxy\Core\Agent\Exceptions\AgentInvocationNotImplementedException;
 use Bloxy\Core\Agent\Exceptions\AgentNameConflictException;
 use Bloxy\Core\Agent\InMemoryAgentRegistry;
 
@@ -47,20 +46,19 @@ it('throws AgentNameConflictException on duplicate registration', function () {
         ->toThrow(AgentNameConflictException::class);
 });
 
-it('throws AgentInvocationNotImplementedException with a clear message', function () {
-    $registry = app(AgentRegistry::class);
-    $registry->register(new RegistryTestAgent('demo.invoke', 'wont run'));
-
-    expect(fn () => $registry->invoke('demo.invoke', []))
-        ->toThrow(AgentInvocationNotImplementedException::class, 'Sub-plan B');
-});
-
 it('binds the registry as a singleton across multiple app(AgentRegistry::class) calls', function () {
     expect(app(AgentRegistry::class))->toBe(app(AgentRegistry::class));
 });
 
+it('exposes a visibleIn() default of cockpit + portal via HasDefaultVisibility', function () {
+    $agent = new RegistryTestAgent('demo.visible', 'visibility default');
+    expect($agent->visibleIn())->toBe(['cockpit', 'portal']);
+});
+
 class RegistryTestAgent implements Agent
 {
+    use \Bloxy\Core\Agent\Concerns\HasDefaultVisibility;
+
     public function __construct(
         private readonly string $name,
         private readonly string $description,

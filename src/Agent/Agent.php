@@ -33,4 +33,12 @@ interface Agent
      * @return array<string, mixed>
      */
     public function invoke(array $params): array;
+
+    /**
+     * Surfaces this agent should appear on. The default implementation
+     * (Concerns\HasDefaultVisibility) returns ['cockpit', 'portal'].
+     *
+     * @return array<string> One or more of 'cockpit', 'portal'.
+     */
+    public function visibleIn(): array;
 }

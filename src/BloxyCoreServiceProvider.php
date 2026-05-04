@@ -42,8 +42,29 @@ class BloxyCoreServiceProvider extends ServiceProvider
             return new \Bloxy\Core\Audit\ChainSigner();
         });
 
-        $this->app->singleton(\Bloxy\Core\Agent\AgentRegistry::class, function () {
-            return new \Bloxy\Core\Agent\InMemoryAgentRegistry();
+        $this->app->singleton(\Bloxy\Core\Agent\AgentRunner::class, function () {
+            return new \Bloxy\Core\Agent\Runners\NaiveRunner();
+        });
+
+        $this->app->singleton(\Bloxy\Core\Agent\AgentAuthorizer::class, function (Application $app) {
+            return new \Bloxy\Core\Agent\Authorizers\BloxyRbacAgentAuthorizer(
+                $app->make(\Illuminate\Contracts\Auth\Factory::class),
+                $app->make(BloxyAccessResolver::class),
+            );
+        });
+
+        $this->app->singleton(\Bloxy\Core\Agent\UsageLog\UsageLogger::class, function () {
+            return new \Bloxy\Core\Agent\UsageLog\UsageLogger();
+        });
+
+        $this->app->singleton(\Bloxy\Core\Agent\AgentRegistry::class, function (Application $app) {
+            return new \Bloxy\Core\Agent\InMemoryAgentRegistry(
+                $app->make(\Bloxy\Core\Agent\AgentAuthorizer::class),
+                $app->make(\Bloxy\Core\Agent\AgentRunner::class),
+                $app->make(\Bloxy\Core\Agent\UsageLog\UsageLogger::class),
+                $app->make(Redactor::class),
+                $app->make(\Illuminate\Contracts\Auth\Factory::class),
+            );
         });
     }
 
