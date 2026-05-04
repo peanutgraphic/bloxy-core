@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use Bloxy\Core\Casts\EncryptedJson;
 use Bloxy\Core\Casts\ServerEncryptedJson;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Schema\Blueprint;
@@ -21,23 +20,23 @@ afterEach(function () {
 });
 
 it('encrypts and decrypts a flat array', function () {
-    $model = new TestEncryptedJsonModel();
+    $model = new TestServerEncryptedJsonModel();
     $model->payload = ['a' => 1, 'b' => 'two'];
     $model->save();
 
-    $reloaded = TestEncryptedJsonModel::find($model->id);
+    $reloaded = TestServerEncryptedJsonModel::find($model->id);
     expect($reloaded->payload)->toBe(['a' => 1, 'b' => 'two']);
 });
 
 it('encrypts and decrypts a deeply nested array', function () {
-    $model = new TestEncryptedJsonModel();
+    $model = new TestServerEncryptedJsonModel();
     $model->payload = [
         'user' => ['name' => 'nat', 'roles' => ['operator', 'agent']],
         'meta' => ['flags' => ['x' => true, 'y' => false]],
     ];
     $model->save();
 
-    $reloaded = TestEncryptedJsonModel::find($model->id);
+    $reloaded = TestServerEncryptedJsonModel::find($model->id);
     expect($reloaded->payload)->toBe([
         'user' => ['name' => 'nat', 'roles' => ['operator', 'agent']],
         'meta' => ['flags' => ['x' => true, 'y' => false]],
@@ -45,25 +44,25 @@ it('encrypts and decrypts a deeply nested array', function () {
 });
 
 it('round-trips null', function () {
-    $model = new TestEncryptedJsonModel();
+    $model = new TestServerEncryptedJsonModel();
     $model->payload = null;
     $model->save();
 
-    $reloaded = TestEncryptedJsonModel::find($model->id);
+    $reloaded = TestServerEncryptedJsonModel::find($model->id);
     expect($reloaded->payload)->toBeNull();
 });
 
 it('round-trips an empty array', function () {
-    $model = new TestEncryptedJsonModel();
+    $model = new TestServerEncryptedJsonModel();
     $model->payload = [];
     $model->save();
 
-    $reloaded = TestEncryptedJsonModel::find($model->id);
+    $reloaded = TestServerEncryptedJsonModel::find($model->id);
     expect($reloaded->payload)->toBe([]);
 });
 
 it('writes ciphertext to the column (not plaintext JSON)', function () {
-    $model = new TestEncryptedJsonModel();
+    $model = new TestServerEncryptedJsonModel();
     $model->payload = ['secret' => 'value'];
     $model->save();
 
@@ -75,23 +74,7 @@ it('writes ciphertext to the column (not plaintext JSON)', function () {
     expect($rawColumn)->not->toContain('value');
 });
 
-class TestEncryptedJsonModel extends Model
-{
-    protected $table = 'test_encrypted_json_models';
-    protected $guarded = [];
-    public $timestamps = true;
-
-    protected function casts(): array
-    {
-        return [
-            'payload' => EncryptedJson::class,
-        ];
-    }
-}
-
-// --- ServerEncryptedJson (canonical) ---
-
-it('ServerEncryptedJson round-trips an associative array', function () {
+it('ServerEncryptedJson round-trips an associative array with assertion on raw column', function () {
     $original = ['name' => 'nat', 'score' => 42, 'active' => true];
 
     $model = new TestServerEncryptedJsonModel();
@@ -107,10 +90,6 @@ it('ServerEncryptedJson round-trips an associative array', function () {
 
     $reloaded = TestServerEncryptedJsonModel::find($model->id);
     expect($reloaded->payload)->toBe($original);
-});
-
-it('EncryptedJson is an instanceof ServerEncryptedJson', function () {
-    expect(new EncryptedJson())->toBeInstanceOf(ServerEncryptedJson::class);
 });
 
 class TestServerEncryptedJsonModel extends Model

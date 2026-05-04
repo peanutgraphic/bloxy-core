@@ -15,8 +15,7 @@ use InvalidArgumentException;
  *
  * Methods are prefixed `bloxy*` (e.g., `bloxyCan` instead of `can`) to
  * avoid colliding with Laravel's Authenticatable::can() and to keep all
- * BLOXY trait methods discoverable under one prefix. The unprefixed
- * legacy names remain as @deprecated aliases.
+ * BLOXY trait methods discoverable under one prefix.
  *
  * Each resource-scoped method accepts EITHER an Eloquent Model directly
  * (preferred) OR a (resourceType, resourceId) string pair (for non-Eloquent
@@ -96,48 +95,6 @@ trait Authorizable
             $resolvedType,
             $resolvedId,
         );
-    }
-
-    /**
-     * @deprecated 0.x.0 Use bloxyAssignRole(). Will be removed in the next minor.
-     */
-    public function assignRole(
-        string $roleName,
-        Model|string|null $resourceType = null,
-        ?string $resourceId = null,
-        ?array $activationPredicate = null,
-    ): RoleAssignment {
-        return $this->bloxyAssignRole($roleName, $resourceType, $resourceId, $activationPredicate);
-    }
-
-    /**
-     * @deprecated 0.x.0 Use bloxyRevokeRole(). Will be removed in the next minor.
-     */
-    public function revokeRole(
-        string $roleName,
-        Model|string|null $resourceType = null,
-        ?string $resourceId = null,
-    ): int {
-        return $this->bloxyRevokeRole($roleName, $resourceType, $resourceId);
-    }
-
-    /**
-     * @deprecated 0.x.0 Use bloxyHasRole(). Will be removed in the next minor.
-     */
-    public function hasRole(string $roleName): bool
-    {
-        return $this->bloxyHasRole($roleName);
-    }
-
-    /**
-     * @deprecated 0.x.0 Use bloxyCan(). Will be removed in the next minor.
-     */
-    public function canBloxy(
-        string $permission,
-        Model|string|null $resourceType = null,
-        ?string $resourceId = null,
-    ): bool {
-        return $this->bloxyCan($permission, $resourceType, $resourceId);
     }
 
     /**

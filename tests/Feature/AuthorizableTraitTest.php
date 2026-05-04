@@ -29,7 +29,7 @@ afterEach(function () {
 it('assignRole creates a role assignment for the user', function () {
     $u = TestUser::create(['name' => 'Alice']);
 
-    $u->assignRole('heir');
+    $u->bloxyAssignRole('heir');
 
     $assignment = RoleAssignment::query()->first();
     expect($assignment)->not->toBeNull();
@@ -41,7 +41,7 @@ it('assignRole creates a role assignment for the user', function () {
 it('assignRole on a specific resource scopes the assignment', function () {
     $u = TestUser::create(['name' => 'Alice']);
 
-    $u->assignRole('heir', resourceType: 'App\\Document', resourceId: '7');
+    $u->bloxyAssignRole('heir', resourceType: 'App\\Document', resourceId: '7');
 
     $assignment = RoleAssignment::query()->first();
     expect($assignment->resource_type)->toBe('App\\Document');
@@ -50,51 +50,51 @@ it('assignRole on a specific resource scopes the assignment', function () {
 
 it('hasRole returns true after assignment', function () {
     $u = TestUser::create(['name' => 'Alice']);
-    $u->assignRole('heir');
+    $u->bloxyAssignRole('heir');
 
-    expect($u->hasRole('heir'))->toBeTrue();
-    expect($u->hasRole('executor'))->toBeFalse();
+    expect($u->bloxyHasRole('heir'))->toBeTrue();
+    expect($u->bloxyHasRole('executor'))->toBeFalse();
 });
 
 it('canBloxy delegates to the resolver', function () {
     $u = TestUser::create(['name' => 'Alice']);
-    $u->assignRole('heir');
+    $u->bloxyAssignRole('heir');
 
-    expect($u->canBloxy('documents.read'))->toBeTrue();
-    expect($u->canBloxy('documents.write'))->toBeFalse();
+    expect($u->bloxyCan('documents.read'))->toBeTrue();
+    expect($u->bloxyCan('documents.write'))->toBeFalse();
 });
 
 it('revokeRole removes the assignment', function () {
     $u = TestUser::create(['name' => 'Alice']);
-    $u->assignRole('heir');
+    $u->bloxyAssignRole('heir');
 
-    $u->revokeRole('heir');
+    $u->bloxyRevokeRole('heir');
 
     expect(RoleAssignment::query()->count())->toBe(0);
-    expect($u->hasRole('heir'))->toBeFalse();
+    expect($u->bloxyHasRole('heir'))->toBeFalse();
 });
 
 it('throws when assigning a role that does not exist', function () {
     $u = TestUser::create(['name' => 'Alice']);
 
-    expect(fn () => $u->assignRole('nonexistent'))
+    expect(fn () => $u->bloxyAssignRole('nonexistent'))
         ->toThrow(InvalidArgumentException::class);
 });
 
 it('canBloxy accepts an Eloquent model directly', function () {
     $u = TestUser::create(['name' => 'Alice']);
     $resource = TestUser::create(['name' => 'ResourceModel']);
-    $u->assignRole('heir', $resource);
+    $u->bloxyAssignRole('heir', $resource);
 
-    expect($u->canBloxy('documents.read', $resource))->toBeTrue();
-    expect($u->canBloxy('documents.write', $resource))->toBeFalse();
+    expect($u->bloxyCan('documents.read', $resource))->toBeTrue();
+    expect($u->bloxyCan('documents.write', $resource))->toBeFalse();
 });
 
 it('assignRole accepts an Eloquent model directly', function () {
     $u = TestUser::create(['name' => 'Alice']);
     $resource = TestUser::create(['name' => 'ResourceModel']);
 
-    $u->assignRole('heir', $resource);
+    $u->bloxyAssignRole('heir', $resource);
 
     $assignment = \Bloxy\Core\Rbac\RoleAssignment::query()->first();
     expect($assignment->resource_type)->toBe($resource->getMorphClass());
@@ -104,9 +104,9 @@ it('assignRole accepts an Eloquent model directly', function () {
 it('revokeRole accepts an Eloquent model directly', function () {
     $u = TestUser::create(['name' => 'Alice']);
     $resource = TestUser::create(['name' => 'ResourceModel']);
-    $u->assignRole('heir', $resource);
+    $u->bloxyAssignRole('heir', $resource);
 
-    $u->revokeRole('heir', $resource);
+    $u->bloxyRevokeRole('heir', $resource);
 
     expect(\Bloxy\Core\Rbac\RoleAssignment::query()->count())->toBe(0);
 });

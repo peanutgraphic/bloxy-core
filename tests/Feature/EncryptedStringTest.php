@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use Bloxy\Core\Casts\EncryptedString;
 use Bloxy\Core\Casts\ServerEncryptedString;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Schema\Blueprint;
@@ -21,7 +20,7 @@ afterEach(function () {
 });
 
 it('encrypts on save and decrypts on retrieve', function () {
-    $model = new TestEncryptedStringModel();
+    $model = new TestServerEncryptedStringModel();
     $model->secret_value = 'hello-world';
     $model->save();
 
@@ -33,63 +32,26 @@ it('encrypts on save and decrypts on retrieve', function () {
     expect($rawColumn)->toBeString();
     expect(strlen($rawColumn))->toBeGreaterThan(20);
 
-    $reloaded = TestEncryptedStringModel::find($model->id);
+    $reloaded = TestServerEncryptedStringModel::find($model->id);
     expect($reloaded->secret_value)->toBe('hello-world');
 });
 
 it('round-trips null', function () {
-    $model = new TestEncryptedStringModel();
+    $model = new TestServerEncryptedStringModel();
     $model->secret_value = null;
     $model->save();
 
-    $reloaded = TestEncryptedStringModel::find($model->id);
+    $reloaded = TestServerEncryptedStringModel::find($model->id);
     expect($reloaded->secret_value)->toBeNull();
 });
 
 it('handles empty string', function () {
-    $model = new TestEncryptedStringModel();
+    $model = new TestServerEncryptedStringModel();
     $model->secret_value = '';
     $model->save();
 
-    $reloaded = TestEncryptedStringModel::find($model->id);
-    expect($reloaded->secret_value)->toBe('');
-});
-
-class TestEncryptedStringModel extends Model
-{
-    protected $table = 'test_encrypted_string_models';
-    protected $guarded = [];
-    public $timestamps = true;
-
-    protected function casts(): array
-    {
-        return [
-            'secret_value' => EncryptedString::class,
-        ];
-    }
-}
-
-// --- ServerEncryptedString (canonical) ---
-
-it('ServerEncryptedString round-trips a value', function () {
-    $model = new TestServerEncryptedStringModel();
-    $model->secret_value = 'server-side-secret';
-    $model->save();
-
-    $rawColumn = \Illuminate\Support\Facades\DB::table('test_encrypted_string_models')
-        ->where('id', $model->id)
-        ->value('secret_value');
-
-    expect($rawColumn)->not->toBe('server-side-secret');
-    expect($rawColumn)->toBeString();
-    expect(strlen($rawColumn))->toBeGreaterThan(20);
-
     $reloaded = TestServerEncryptedStringModel::find($model->id);
-    expect($reloaded->secret_value)->toBe('server-side-secret');
-});
-
-it('EncryptedString is an instanceof ServerEncryptedString', function () {
-    expect(new EncryptedString())->toBeInstanceOf(ServerEncryptedString::class);
+    expect($reloaded->secret_value)->toBe('');
 });
 
 class TestServerEncryptedStringModel extends Model
