@@ -55,35 +55,34 @@ class SentryRedactor
 
     private function redactRequestPayload(object $event): void
     {
-        if (! method_exists($event, 'getRequest') || ! method_exists($event, 'setRequest')) {
-            return;
-        }
-
-        $request = $event->getRequest();
-        if (! is_array($request)) {
-            return;
-        }
-
-        $redacted = $this->redactor->redact($request);
-        if (is_array($redacted)) {
-            $event->setRequest($redacted);
-        }
+        $this->redactArrayProperty($event, 'getRequest', 'setRequest');
     }
 
     private function redactExtraContext(object $event): void
     {
-        if (! method_exists($event, 'getExtra') || ! method_exists($event, 'setExtra')) {
+        $this->redactArrayProperty($event, 'getExtra', 'setExtra');
+    }
+
+    /**
+     * Walk an array-shaped Sentry event property through Redactor and
+     * write it back via the matching setter. Shared by getRequest/setRequest
+     * and getExtra/setExtra; breadcrumbs use a different shape (immutable
+     * builder pattern, see redactBreadcrumbs).
+     */
+    private function redactArrayProperty(object $event, string $getter, string $setter): void
+    {
+        if (! method_exists($event, $getter) || ! method_exists($event, $setter)) {
             return;
         }
 
-        $extra = $event->getExtra();
-        if (! is_array($extra)) {
+        $value = $event->{$getter}();
+        if (! is_array($value)) {
             return;
         }
 
-        $redacted = $this->redactor->redact($extra);
+        $redacted = $this->redactor->redact($value);
         if (is_array($redacted)) {
-            $event->setExtra($redacted);
+            $event->{$setter}($redacted);
         }
     }
 

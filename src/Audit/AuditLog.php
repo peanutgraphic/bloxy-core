@@ -56,7 +56,7 @@ class AuditLog extends Model
                 // When the chain is enabled, a resolver failure must surface —
                 // silently saving unsigned rows in a chain-enabled deployment
                 // would punch holes the verifier can't catch.
-                if ((bool) (function_exists('config') ? config('bloxy.audit.signed_chain', false) : false)) {
+                if ((bool) config('bloxy.audit.signed_chain', false)) {
                     throw $e;
                 }
                 return null;

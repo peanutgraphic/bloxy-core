@@ -6,14 +6,20 @@ namespace Bloxy\Core\Observability;
 
 class Redactor
 {
+    /** @var array<int, string> Pre-lowercased needles for substring matching. */
+    private readonly array $allowlist;
+
     /**
-     * @param array<int, string> $allowlist Case-insensitive substrings to match against keys.
+     * @param array<int, string> $allowlist Case-insensitive substrings matched against keys.
      * @param string             $marker    Replacement string for redacted values.
      */
     public function __construct(
-        private readonly array $allowlist,
+        array $allowlist,
         private readonly string $marker = '[REDACTED]',
     ) {
+        // Lowercase once at construction so the per-key match doesn't
+        // strtolower() each needle on every call.
+        $this->allowlist = array_values(array_map('strtolower', $allowlist));
     }
 
     /**
@@ -51,7 +57,7 @@ class Redactor
         $haystack = strtolower($key);
 
         foreach ($this->allowlist as $needle) {
-            if (str_contains($haystack, strtolower($needle))) {
+            if (str_contains($haystack, $needle)) {
                 return true;
             }
         }

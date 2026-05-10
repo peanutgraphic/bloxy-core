@@ -113,9 +113,6 @@ trait Authorizable
 
     private function resolver(): BloxyAccessResolver
     {
-        if (function_exists('app')) {
-            return app(BloxyAccessResolver::class);
-        }
-        return new BloxyAccessResolver();
+        return app(BloxyAccessResolver::class);
     }
 }

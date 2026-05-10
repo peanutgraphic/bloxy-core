@@ -34,33 +34,17 @@ class BloxyCoreServiceProvider extends ServiceProvider
             );
         });
 
-        $this->app->singleton(BloxyAccessResolver::class, function () {
-            return new BloxyAccessResolver();
-        });
+        // Zero-arg constructors — Laravel's container auto-resolves these
+        // without an explicit closure. Interface→class bindings ditto.
+        $this->app->singleton(BloxyAccessResolver::class);
+        $this->app->singleton(\Bloxy\Core\Audit\ChainSigner::class);
+        $this->app->singleton(
+            \Bloxy\Core\Agent\AgentRunner::class,
+            \Bloxy\Core\Agent\Runners\NaiveRunner::class,
+        );
 
-        $this->app->singleton(\Bloxy\Core\Audit\ChainSigner::class, function () {
-            return new \Bloxy\Core\Audit\ChainSigner();
-        });
-
-        $this->app->singleton(\Bloxy\Core\Agent\AgentRunner::class, function () {
-            return new \Bloxy\Core\Agent\Runners\NaiveRunner();
-        });
-
-        // To opt into AnthropicAgentRunner instead of NaiveRunner:
-        //
-        // $this->app->singleton(\Bloxy\Core\Agent\Runners\AnthropicConfig::class, function ($app) {
-        //     return \Bloxy\Core\Agent\Runners\AnthropicConfig::fromConfig($app['config']);
-        // });
-        //
-        // $this->app->singleton(\Bloxy\Core\Agent\AgentRunner::class, function ($app) {
-        //     $config = $app->make(\Bloxy\Core\Agent\Runners\AnthropicConfig::class);
-        //     return new \Bloxy\Core\Agent\Runners\AnthropicAgentRunner(
-        //         client: new \Anthropic\Client(apiKey: $config->apiKey),
-        //         config: $config,
-        //     );
-        // });
-        //
-        // See docs/agents.md § "LlmAgent + AnthropicAgentRunner" for full setup.
+        // To opt into AnthropicAgentRunner instead of NaiveRunner, see
+        // docs/agents.md § "Wiring AnthropicAgentRunner".
 
         $this->app->singleton(\Bloxy\Core\Agent\AgentAuthorizer::class, function (Application $app) {
             return new \Bloxy\Core\Agent\Authorizers\BloxyRbacAgentAuthorizer(
@@ -69,9 +53,7 @@ class BloxyCoreServiceProvider extends ServiceProvider
             );
         });
 
-        $this->app->singleton(\Bloxy\Core\Agent\UsageLog\UsageLogger::class, function () {
-            return new \Bloxy\Core\Agent\UsageLog\UsageLogger();
-        });
+        $this->app->singleton(\Bloxy\Core\Agent\UsageLog\UsageLogger::class);
 
         $this->app->singleton(\Bloxy\Core\Agent\AgentRegistry::class, function (Application $app) {
             return new \Bloxy\Core\Agent\InMemoryAgentRegistry(
@@ -131,22 +113,9 @@ class BloxyCoreServiceProvider extends ServiceProvider
 
     private function wireMonolog(): void
     {
-        // Push the redacting processor onto the DEFAULT log channel only.
-        // Apps using named channels (Log::channel('slack'), Log::channel('audit'),
-        // etc.) get UNREDACTED output on those channels — each named channel
-        // resolves to a separately-instantiated Monolog Logger that doesn't
-        // share processors with the default. If you route sensitive
-        // operations through a named channel, push RedactingProcessor onto
-        // that channel manually in your AppServiceProvider:
-        //
-        //   Log::channel('slack')->getLogger()->pushProcessor(
-        //       new \Bloxy\Core\Observability\RedactingProcessor(
-        //           app(\Bloxy\Core\Observability\Redactor::class)
-        //       )
-        //   );
-        //
-        // Disable the default-channel auto-wire entirely via
-        // bloxy.observability.redaction.auto_wire_monolog = false.
+        // Pushes RedactingProcessor onto the DEFAULT log channel only.
+        // Named channels (Log::channel('slack'), etc.) need manual wiring.
+        // See docs/audit-log.md § "Redactor: Monolog channel wiring".
         try {
             $logger = $this->app->make('log')->driver();
         } catch (\Throwable) {
