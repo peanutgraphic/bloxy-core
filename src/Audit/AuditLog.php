@@ -38,11 +38,16 @@ class AuditLog extends Model
     {
         parent::boot();
 
-        static::saving(function (AuditLog $row): void {
+        static::saving(function (AuditLog $row): bool|null {
+            // Skip on updates — chain signing is insert-only.
+            if ($row->exists) {
+                return null;
+            }
+
             // Resolve via container so the cast/key-lookup honors the host app's config.
             // Skip if bloxy is not booted (e.g. raw Eloquent in a non-Laravel context).
             if (! function_exists('app')) {
-                return;
+                return null;
             }
 
             try {
@@ -54,10 +59,17 @@ class AuditLog extends Model
                 if ((bool) (function_exists('config') ? config('bloxy.audit.signed_chain', false) : false)) {
                     throw $e;
                 }
-                return;
+                return null;
             }
 
-            $signer->sign($row);
+            // signAndSave() performs the INSERT inside the same transaction
+            // that holds the previous-row lock. Returning false here aborts
+            // Eloquent's outer save so the row is not double-inserted.
+            if ($signer->signAndSave($row)) {
+                return false;
+            }
+
+            return null;
         });
     }
 }

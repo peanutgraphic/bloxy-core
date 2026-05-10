@@ -11,17 +11,21 @@ use RuntimeException;
 class ChainSigner
 {
     /**
-     * Sign an AuditLog row in-place, populating $row->signature and
-     * $row->signing_key_id. Caller is responsible for persisting the row
-     * after this returns. Serializes via DB::transaction + lockForUpdate
-     * on the previous row so concurrent writers can't race the chain.
+     * Sign an AuditLog row and persist it inside the same transaction that
+     * holds the previous-row lock. Returns true if this call performed the
+     * INSERT (caller must NOT call save() again — return false from the
+     * `saving` listener to abort Eloquent's outer save). Returns false when
+     * chain signing is disabled (caller proceeds with normal save).
      *
-     * No-op when bloxy.audit.signed_chain is false.
+     * Holding the lock across the INSERT is what prevents two concurrent
+     * writers from both reading the same `prev`, signing against it, and
+     * producing duplicate chain links. The previous design released the
+     * lock before the INSERT, opening a race window.
      */
-    public function sign(AuditLog $row): void
+    public function signAndSave(AuditLog $row): bool
     {
         if (! (bool) config('bloxy.audit.signed_chain', false)) {
-            return;
+            return false;
         }
 
         $activeKeyId = (int) config('bloxy.audit.active_signing_key_id', 1);
@@ -29,6 +33,9 @@ class ChainSigner
 
         // Serialize via the previous row's lock. Works on Postgres
         // (real row lock) and degrades safely on SQLite (single-writer DB).
+        // The INSERT happens inside the same transaction so the lock is
+        // held until the new row is committed — no race window between
+        // reading `prev` and writing the new row.
         DB::transaction(function () use ($row, $activeKeyId, $key): void {
             $prev = AuditLog::query()
                 ->orderByDesc('id')
@@ -38,7 +45,23 @@ class ChainSigner
             $prevSignature = $prev?->signature ?? '';
             $row->signature = hash_hmac('sha256', $prevSignature . $this->canonicalize($row), $key);
             $row->signing_key_id = $activeKeyId;
+
+            // Persist quietly so we don't re-enter the saving event.
+            $row->saveQuietly();
         });
+
+        return true;
+    }
+
+    /**
+     * @deprecated Use signAndSave(); kept for backward compat. Sets the
+     * signature fields on the row but does NOT save — and the lock is
+     * released before any subsequent save by the caller, which is the
+     * race condition that signAndSave() exists to fix.
+     */
+    public function sign(AuditLog $row): void
+    {
+        $this->signAndSave($row);
     }
 
     /**

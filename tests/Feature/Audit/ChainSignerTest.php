@@ -123,3 +123,20 @@ it('signs and verifies rows that have a changes payload', function () {
     expect($afterTamper->passed)->toBeFalse();
     expect($afterTamper->brokenAtId)->toBe($row2->id);
 });
+
+it('produces exactly one row per AuditLog::create even though the saving listener returns false', function () {
+    AuditLog::create(['happened_at' => now(), 'action' => 'created', 'subject_type' => 'Test', 'subject_id' => '1']);
+    AuditLog::create(['happened_at' => now(), 'action' => 'updated', 'subject_type' => 'Test', 'subject_id' => '1']);
+
+    expect(\DB::table('audit_log')->count())->toBe(2);
+});
+
+it('persists the row inside the lock-holding transaction (id is set on the in-memory model)', function () {
+    $row = AuditLog::create(['happened_at' => now(), 'action' => 'created', 'subject_type' => 'Test', 'subject_id' => '1']);
+
+    expect($row->id)->toBeInt();
+    expect($row->exists)->toBeTrue();
+    expect($row->signature)->toBeString();
+
+    expect(\DB::table('audit_log')->where('id', $row->id)->exists())->toBeTrue();
+});
