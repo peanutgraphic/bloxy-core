@@ -2,7 +2,7 @@
     "name": "peanutgraphic/bloxy-core",
     "description": "BLOXY core PHP primitives — auth, RBAC, audit log, agent registry, suggestion layer, encrypted casts",
     "type": "library",
-    "license": "MIT",
+    "license": "proprietary",
     "keywords": ["bloxy", "laravel", "inertia", "vertical-saas", "agents"],
     "require": {
         "php": "^8.3",
