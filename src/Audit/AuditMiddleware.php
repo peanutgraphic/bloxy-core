@@ -38,7 +38,19 @@ class AuditMiddleware
 
         $response = $next($request);
 
-        $this->record($request, $response, $requestId);
+        // S-31 (Pass 2): audit logging must NEVER fail-closed onto the
+        // business path. If the audit write throws (DB hiccup, missing
+        // table, redactor binding misconfigured), report the exception
+        // out-of-band and return the original business response. An
+        // attacker who can trigger an audit-write failure must not be
+        // able to convert a successful 200 into a 500.
+        try {
+            $this->record($request, $response, $requestId);
+        } catch (\Throwable $e) {
+            if (function_exists('report')) {
+                report($e);
+            }
+        }
 
         return $response;
     }

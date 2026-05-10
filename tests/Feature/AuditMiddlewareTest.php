@@ -80,3 +80,25 @@ it('records the IP address from the request', function () {
     $entry = AuditLog::query()->first();
     expect($entry->ip_address)->toBe('203.0.113.42');
 });
+
+it('returns the business response even when the audit write throws (S-31)', function () {
+    // S-31 regression: AuditMiddleware records AFTER $next() with no
+    // try/catch. If the audit_log write fails (DB hiccup, redactor
+    // misconfigured, table missing) the exception propagates and
+    // Laravel's exception handler converts the successful 200 into a
+    // 500. Audit logging must NEVER fail-closed onto the business path.
+
+    // Force the audit write to throw by dropping the audit_log table.
+    // The middleware's AuditLog::create() will then fail with a
+    // QueryException.
+    \Illuminate\Support\Facades\Schema::drop('audit_log');
+
+    $middleware = new AuditMiddleware();
+    $request = Request::create('/foo', 'POST');
+
+    $response = $middleware->handle($request, fn ($r) => response('business-success', 201));
+
+    // The original business response must come back unchanged.
+    expect($response->getStatusCode())->toBe(201);
+    expect($response->getContent())->toBe('business-success');
+});
