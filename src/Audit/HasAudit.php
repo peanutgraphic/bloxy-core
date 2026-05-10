@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Bloxy\Core\Audit;
 
+use Bloxy\Core\Observability\Redactor;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 
@@ -59,6 +60,13 @@ trait HasAudit
         $actor = self::resolveActor();
         $request = self::resolveRequest();
 
+        // S-3: redact sensitive fields (password, remember_token, etc.) from
+        // changes before persistence. Uses the shared Redactor, whose allowlist
+        // is configured at bloxy.observability.redactor.allowlist.
+        $redactor = self::resolveRedactor();
+        $redactedBefore = $before === null ? null : $redactor->redact($before);
+        $redactedAfter = $after === null ? null : $redactor->redact($after);
+
         return AuditLog::create([
             'happened_at' => Carbon::now(),
             'actor_type' => $actor['type'],
@@ -67,14 +75,27 @@ trait HasAudit
             'subject_type' => $model::class,
             'subject_id' => $model->getKey() === null ? null : (string) $model->getKey(),
             'changes' => ($before === null && $after === null) ? null : [
-                'before' => $before,
-                'after' => $after,
+                'before' => $redactedBefore,
+                'after' => $redactedAfter,
             ],
             'ip_address' => $request['ip'],
             'user_agent' => $request['user_agent'],
             'request_id' => $request['request_id'],
             'meta' => $extraMeta === [] ? null : $extraMeta,
         ]);
+    }
+
+    private static function resolveRedactor(): Redactor
+    {
+        if (function_exists('app')) {
+            try {
+                return app(Redactor::class);
+            } catch (\Throwable) {
+                // fall through to default
+            }
+        }
+
+        return new Redactor(['password', 'password_confirmation', 'remember_token', 'token', 'secret']);
     }
 
     /** @return array{type: ?string, id: ?string} */

@@ -13,6 +13,8 @@ beforeEach(function () {
         $table->id();
         $table->string('title')->nullable();
         $table->integer('count')->default(0);
+        $table->string('password')->nullable();
+        $table->string('remember_token')->nullable();
         $table->timestamps();
     });
 });
@@ -130,6 +132,40 @@ it('recordRead() returns the AuditLog instance', function () {
 
     expect($log)->toBeInstanceOf(AuditLog::class);
     expect($log->action)->toBe('read');
+});
+
+it('redacts password and remember_token in created/deleted audit entries (S-3)', function () {
+    // S-3 regression: HasAudit was writing raw $model->getAttributes() into
+    // audit_log.changes, leaking bcrypt password hashes and remember_tokens.
+    $m = TestAuditedModel::create([
+        'title' => 'sensitive',
+        'password' => '$2y$12$realbcryptlookalikevalueXXXXXXXXXXXXXXXXXXXXXXXXXX',
+        'remember_token' => 'rt_' . str_repeat('a', 60),
+    ]);
+
+    $createdEntry = AuditLog::query()->where('action', 'created')->first();
+    expect($createdEntry->changes['after']['password'])->toBe('[REDACTED]');
+    expect($createdEntry->changes['after']['remember_token'])->toBe('[REDACTED]');
+    expect($createdEntry->changes['after']['title'])->toBe('sensitive'); // non-sensitive passes through
+
+    AuditLog::query()->delete();
+    $m->delete();
+
+    $deletedEntry = AuditLog::query()->where('action', 'deleted')->first();
+    expect($deletedEntry->changes['before']['password'])->toBe('[REDACTED]');
+    expect($deletedEntry->changes['before']['remember_token'])->toBe('[REDACTED]');
+    expect($deletedEntry->changes['before']['title'])->toBe('sensitive');
+});
+
+it('redacts password fields on update before/after diff (S-3)', function () {
+    $m = TestAuditedModel::create(['title' => 't', 'password' => 'old_hash']);
+    AuditLog::query()->delete();
+
+    $m->update(['password' => 'new_hash']);
+
+    $entry = AuditLog::query()->where('action', 'updated')->first();
+    expect($entry->changes['before']['password'])->toBe('[REDACTED]');
+    expect($entry->changes['after']['password'])->toBe('[REDACTED]');
 });
 
 class TestAuditedModel extends Model
