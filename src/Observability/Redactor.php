@@ -29,7 +29,22 @@ class Redactor
      * any string key containing an allowlist entry (case-insensitive) has its
      * value replaced by the marker.
      */
+    /**
+     * Maximum nested-array depth Redactor will walk. Adversarial 64KB
+     * JSON payloads can encode ~10k levels of nesting via single-char
+     * `{"a":` blocks; without a depth cap that overflows PHP's recursion
+     * limit (default 256 stack frames). Realistic API payloads top out
+     * around 10-15 levels, so 64 is generous AND safe.
+     * S-14 (Pass 2 M4).
+     */
+    public const MAX_DEPTH = 64;
+
     public function redact(mixed $input): mixed
+    {
+        return $this->redactInternal($input, 0);
+    }
+
+    private function redactInternal(mixed $input, int $depth): mixed
     {
         if (! is_array($input)) {
             return $input;
@@ -39,6 +54,10 @@ class Redactor
             return $input;
         }
 
+        if ($depth >= self::MAX_DEPTH) {
+            return ['_truncated' => 'max_depth'];
+        }
+
         $result = [];
         foreach ($input as $key => $value) {
             if (is_string($key) && $this->keyMatchesAllowlist($key)) {
@@ -46,7 +65,9 @@ class Redactor
                 continue;
             }
 
-            $result[$key] = is_array($value) ? $this->redact($value) : $value;
+            $result[$key] = is_array($value)
+                ? $this->redactInternal($value, $depth + 1)
+                : $value;
         }
 
         return $result;
