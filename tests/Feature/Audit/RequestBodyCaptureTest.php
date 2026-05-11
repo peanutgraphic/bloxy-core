@@ -77,3 +77,33 @@ it('omits multipart bodies regardless of mode', function () {
     $entry = AuditLog::query()->where('action', 'http_request')->first();
     expect($entry->meta['body'] ?? null)->toBe(['_omitted' => 'multipart/form-data']);
 });
+
+
+it("redacts OAuth/OIDC params from captured body (S-13)", function () {
+    config()->set("bloxy.audit.capture_request_body", "redacted");
+
+    Route::middleware(["bloxy.audit"])->post("/auth/callback", fn () => response()->json(["ok" => true]));
+
+    $this->postJson("/auth/callback", [
+        "code" => "AUTHORIZATION-CODE-FROM-OAUTH-PROVIDER",
+        "state" => "csrf-state-token-from-oauth-provider",
+        "nonce" => "oidc-replay-defense-nonce",
+        "id_token" => "eyJhbGciOiJIUzI1NiJ9.test.test",
+        "access_token" => "ya29.test-access",
+        "refresh_token" => "1//test-refresh",
+        "session_id" => "abc123",
+        "harmless" => "kept",
+    ])->assertOk();
+
+    $entry = AuditLog::query()->where("action", "http_request")->first();
+    $body = $entry->meta["body"] ?? [];
+    expect($body["code"])->toBe("[REDACTED]");
+    expect($body["state"])->toBe("[REDACTED]");
+    expect($body["nonce"])->toBe("[REDACTED]");
+    expect($body["id_token"])->toBe("[REDACTED]");
+    expect($body["access_token"])->toBe("[REDACTED]");
+    expect($body["refresh_token"])->toBe("[REDACTED]");
+    expect($body["session_id"])->toBe("[REDACTED]");
+    expect($body["harmless"])->toBe("kept");
+});
+

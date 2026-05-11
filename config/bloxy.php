@@ -35,6 +35,19 @@ return [
                 'authorization',
                 'cookie',
                 'set-cookie',
+                // S-13 hardening (Pass 2 M4): OAuth / OIDC / SSO query
+                // params land in AuditMiddleware's body capture when a
+                // state-changing request has them in the URL (e.g. a
+                // POST to /auth/callback that proxies an inbound code).
+                // These fields routinely carry secret material; redact
+                // them by substring match.
+                'code',
+                'state',
+                'nonce',
+                'session_id',
+                'id_token',
+                'refresh_token',
+                'access_token',
             ],
             'marker' => '[REDACTED]',
 
