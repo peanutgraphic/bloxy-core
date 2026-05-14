@@ -31,6 +31,7 @@ class AuditLog extends Model
             'changes' => ServerEncryptedJson::class,
             'meta' => 'array',
             'signing_key_id' => 'integer',
+            'chain_version' => 'integer',
         ];
     }
 

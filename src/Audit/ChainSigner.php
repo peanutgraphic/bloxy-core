@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Bloxy\Core\Audit;
 
+use Illuminate\Contracts\Database\Eloquent\CastsAttributes;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -45,6 +46,10 @@ class ChainSigner
             $prevSignature = $prev?->signature ?? '';
             $row->signature = hash_hmac('sha256', $prevSignature . $this->canonicalize($row), $key);
             $row->signing_key_id = $activeKeyId;
+            // M4 B-2: tag the row with the canonicalization version that
+            // produced these bytes, so future verifiers can detect mixed
+            // v1/v2 spans during a re-anchor without re-hashing every row.
+            $row->chain_version = (int) config('bloxy.audit.chain_version', 2);
 
             // Persist quietly so we don't re-enter the saving event.
             $row->saveQuietly();
@@ -134,6 +139,7 @@ class ChainSigner
             $attrs['created_at'],
             $attrs['updated_at'],
             $attrs['signing_key_id'],
+            $attrs['chain_version'],
         );
 
         // Normalize date/datetime values to a stable string form so that a Carbon
@@ -150,23 +156,24 @@ class ChainSigner
         // freshly loaded from the database (all columns present, unset ones null).
         $attrs = array_filter($attrs, fn ($v) => $v !== null);
 
-        // Normalize the `meta` JSON column key order for stable signing.
-        // The `meta` column is cast to array but stored as a JSON string;
-        // re-decode + ksort + re-encode so consumers building `meta` with
-        // different key order across writes don't break the canonical form.
-        if (isset($attrs['meta']) && is_string($attrs['meta'])) {
-            $decoded = json_decode($attrs['meta'], associative: true);
-            if (is_array($decoded)) {
-                $this->ksortRecursive($decoded);
-                $attrs['meta'] = json_encode(
-                    $decoded,
-                    JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES,
+        // Normalize cast-aware JSON columns to a deterministic string form.
+        // The same logical row appears as different attribute shapes at
+        // sign-time (raw PHP array, cast set() has not run) and verify-time
+        // (stored DB form: ciphertext for `changes`, JSON string for `meta`).
+        // Both paths must canonicalize to identical bytes, so we route through
+        // the model's own cast pipeline to resolve each to its plaintext form,
+        // then re-encode with ksort'd keys.
+        $casts = $row->getCasts();
+        foreach (['changes', 'meta'] as $castAware) {
+            if (isset($attrs[$castAware])) {
+                $attrs[$castAware] = $this->canonicalPlaintext(
+                    $row,
+                    $castAware,
+                    $attrs[$castAware],
+                    $casts[$castAware] ?? null,
+                    $attrs,
                 );
             }
-        } elseif (isset($attrs['meta']) && is_array($attrs['meta'])) {
-            // At sign time before save, getAttributes() may return the raw
-            // array rather than the encoded string. Normalize the same way.
-            $this->ksortRecursive($attrs['meta']);
         }
 
         ksort($attrs);
@@ -188,6 +195,98 @@ class ChainSigner
         }
 
         return $keys[$keyId];
+    }
+
+    /**
+     * Resolve a cast-aware attribute to its plaintext canonical form by
+     * routing through the model's own cast pipeline.
+     *
+     * Sign-time receives the raw PHP value the caller assigned (typically an
+     * array, before the cast's set() has serialized it). Verify-time receives
+     * the stored DB form (a ciphertext string for `ServerEncryptedJson`, or a
+     * JSON string for the built-in `array` cast). To produce identical bytes
+     * on both paths, we invoke the model's configured cast `get()` on string
+     * inputs — which is the same code path Eloquent uses when reading the
+     * attribute — and skip it for array inputs that are already plaintext.
+     *
+     * This deliberately avoids calling `Crypt::decryptString` directly. If
+     * the cast ever changes (per-tenant KEK wrapper, version envelope, etc.)
+     * the signer auto-adopts the new contract without touching this code.
+     */
+    private function canonicalPlaintext(
+        \Illuminate\Database\Eloquent\Model $row,
+        string $key,
+        mixed $value,
+        ?string $castDefinition,
+        array $attributes,
+    ): string {
+        if (is_string($value) && $castDefinition !== null) {
+            $plaintext = $this->runCastGet($castDefinition, $row, $key, $value, $attributes);
+            if ($plaintext !== null) {
+                $value = $plaintext;
+            }
+        }
+
+        if (is_array($value)) {
+            $this->ksortRecursive($value);
+
+            return json_encode(
+                $value,
+                JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES,
+            );
+        }
+
+        return is_string($value) ? $value : (string) $value;
+    }
+
+    /**
+     * Dispatch to the model's configured cast `get()` for a stored value.
+     * Supports CastsAttributes classes (e.g. ServerEncryptedJson) and the
+     * built-in `array` / `json` casts. Returns null if the cast cannot
+     * resolve the value so the caller signs the raw string as-is — which
+     * keeps legacy pre-cast rows verifiable under their original form.
+     */
+    private function runCastGet(
+        string $castDefinition,
+        \Illuminate\Database\Eloquent\Model $row,
+        string $key,
+        string $value,
+        array $attributes,
+    ): mixed {
+        [$castClass, $params] = array_pad(explode(':', $castDefinition, 2), 2, null);
+
+        if (in_array($castClass, ['array', 'json'], true)) {
+            try {
+                $decoded = json_decode($value, associative: true, flags: JSON_THROW_ON_ERROR);
+
+                return is_array($decoded) ? $decoded : null;
+            } catch (\Throwable) {
+                return null;
+            }
+        }
+
+        if (! class_exists($castClass) || ! is_subclass_of($castClass, CastsAttributes::class)) {
+            return null;
+        }
+
+        try {
+            $cast = $params !== null
+                ? new $castClass(...explode(',', $params))
+                : new $castClass();
+
+            return $cast->get($row, $key, $value, $attributes);
+        } catch (\Throwable $e) {
+            // Surface decrypt fall-through (APP_KEY rotation, missing KEK,
+            // corrupt ciphertext) instead of silently signing the raw value.
+            // Returning null lets canonicalPlaintext sign the stored bytes
+            // as-is, which keeps legacy pre-cast rows verifiable, but the
+            // operator gets a Sentry/log breadcrumb that something is off.
+            if (function_exists('report')) {
+                report($e);
+            }
+
+            return null;
+        }
     }
 
     private function ksortRecursive(array &$value): void

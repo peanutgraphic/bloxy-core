@@ -112,6 +112,16 @@ return [
         'active_signing_key_id' => (int) env('BLOXY_AUDIT_ACTIVE_SIGNING_KEY_ID', 1),
 
         /*
+        | Signed-chain canonicalization version. Bump when the
+        | ChainSigner's canonical-bytes contract changes (e.g. M4 B-2
+        | routed canonicalize() through the configured cast pipeline).
+        | Persisted on each row so verifiers can detect mixed-version
+        | spans during a re-anchor / re-deploy. Operator never sets this;
+        | shipped value reflects the current algorithm.
+        */
+        'chain_version' => env('BLOXY_AUDIT_CHAIN_VERSION', 2),
+
+        /*
         |----------------------------------------------------------------------
         | Request body capture (G7, opt-in)
         |----------------------------------------------------------------------
