@@ -17,6 +17,18 @@ class Redactor
         array $allowlist,
         private readonly string $marker = '[REDACTED]',
     ) {
+        // B-11 (M4): fail-loud on misconfigurations that silently disable
+        // the redaction path. An empty marker, or non-string needles, look
+        // like config typos rather than valid runtime conditions.
+        if ($marker === '') {
+            throw RedactorMisconfigured::emptyMarker();
+        }
+        foreach ($allowlist as $needle) {
+            if (! is_string($needle)) {
+                throw RedactorMisconfigured::nonStringNeedle($needle);
+            }
+        }
+
         // Lowercase once at construction so the per-key match doesn't
         // strtolower() each needle on every call.
         $this->allowlist = array_values(array_map('strtolower', $allowlist));
