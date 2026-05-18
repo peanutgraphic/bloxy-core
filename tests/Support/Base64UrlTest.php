@@ -35,3 +35,12 @@ it('decodes input with optional trailing padding', function () {
 it('throws on invalid base64url input', function () {
     Base64Url::decode('not valid base64!!!');
 })->throws(InvalidArgumentException::class);
+
+it('rejects base64 (non-base64url) alphabet chars that base64_decode would accept (B-8)', function () {
+    // '+' and '/' are valid base64 but NOT base64url; base64_decode(strict)
+    // accepts them, so without an alphabet guard these decode silently.
+    expect(fn () => Base64Url::decode('ab+c'))->toThrow(InvalidArgumentException::class);
+    expect(fn () => Base64Url::decode('ab/c'))->toThrow(InvalidArgumentException::class);
+    // '=' is padding only — not allowed mid-string.
+    expect(fn () => Base64Url::decode('ab=c'))->toThrow(InvalidArgumentException::class);
+});
